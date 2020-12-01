@@ -24,7 +24,7 @@ conf = {
         'board_height': 11,#地图高
         'n_cell_type': 5,#格子的种类
         'materials': 4,#集散点数量
-        'cars': 2,#汽车数量
+        'cars': 4,#汽车数量
         'planes': 0,#飞机数量
         'barriers': 12,#固定障碍物数量
         'max_step' :2000,#最大步数
@@ -89,8 +89,10 @@ def run(config):
                                         config.n_episodes))
         obs = env.reset()
         model.prep_rollouts(device='cpu')
+        total_reward = 0
 
         for et_i in range(config.episode_length):
+            env.render()
             # rearrange observations to be per agent, and convert to torch Variable
             torch_obs = [Variable(torch.Tensor(np.vstack(obs[:, i])),
                                   requires_grad=False)
@@ -101,9 +103,21 @@ def run(config):
             agent_actions = [ac.data.numpy() for ac in torch_agent_actions]
             # rearrange actions to be per environment
             actions = [[ac[i] for ac in agent_actions] for i in range(config.n_rollout_threads)]
-            next_obs, rewards, dones, infos = env.step(actions)
-            # d = copy.deepcopy(dones)
-            # dones = [[d for i in range(2)] for j in range(config.n_rollout_threads)]
+            joint_action = []
+
+            for i in range(2):
+                player = []
+                for j in range(1):
+                    each = [0] * 11
+                    # idx = np.random.randint(11)
+                    each[3] = 1
+                    player.append(each)
+                joint_action.append(player)
+            for m in range(conf["cars"]):
+                joint_action.append([actions[0][m].astype(int).tolist()])
+
+            next_obs, rewards, dones, infos = env.step(joint_action)
+            total_reward += rewards[0][0]
             replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)
             obs = next_obs
             t += config.n_rollout_threads
@@ -125,6 +139,7 @@ def run(config):
         for a_i, a_ep_rew in enumerate(ep_rews):
             logger.add_scalar('agent%i/mean_episode_rewards' % a_i,
                               a_ep_rew * config.episode_length, ep_i)
+        print("total reward:", total_reward)
 
         if ep_i % config.save_interval < config.n_rollout_threads:
             model.prep_rollouts(device='cpu')
@@ -147,7 +162,7 @@ if __name__ == '__main__':
     parser.add_argument("--n_rollout_threads", default=1, type=int)
     parser.add_argument("--buffer_length", default=int(1e6), type=int)
     parser.add_argument("--n_episodes", default=50000, type=int)
-    parser.add_argument("--episode_length", default=25, type=int)
+    parser.add_argument("--episode_length", default=1000, type=int)
     parser.add_argument("--steps_per_update", default=100, type=int)
     parser.add_argument("--num_updates", default=4, type=int,
                         help="Number of updates per update cycle")
@@ -158,8 +173,8 @@ if __name__ == '__main__':
     parser.add_argument("--pol_hidden_dim", default=128, type=int)
     parser.add_argument("--critic_hidden_dim", default=128, type=int)
     parser.add_argument("--attend_heads", default=4, type=int)
-    parser.add_argument("--pi_lr", default=0.001, type=float)
-    parser.add_argument("--q_lr", default=0.001, type=float)
+    parser.add_argument("--pi_lr", default=0.00001, type=float)
+    parser.add_argument("--q_lr", default=0.00001, type=float)
     parser.add_argument("--tau", default=0.001, type=float)
     parser.add_argument("--gamma", default=0.99, type=float)
     parser.add_argument("--reward_scale", default=100., type=float)

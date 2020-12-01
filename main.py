@@ -82,7 +82,7 @@ def run(config):
         'max_step' :500,#最大步数
         'game_name':name,#游戏名字
         'K': 5,#每个K局更新集散点物资数目
-        'map_path':'env/map.txt',#存放初始地图
+        'map_path':'map.txt',#存放初始地图
         'cell_range': 6,  # 单格中各维度取值范围（tuple类型，只有一个int自动转为tuple）##?
         'ob_board_width': None,  # 不同智能体观察到的网格宽度（tuple类型），None表示与实际网格相同##?
         'ob_board_height': None,  # 不同智能体观察到的网格高度（tuple类型），None表示与实际网格相同##?

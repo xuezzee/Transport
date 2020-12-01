@@ -19,6 +19,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
         elif cmd == 'reset':
             ob = env.reset()
             remote.send(ob)
+        elif cmd == 'render':
+            env._render()
         elif cmd == 'reset_task':
             ob = env.reset_task()
             remote.send(ob)
@@ -76,6 +78,10 @@ class SubprocVecEnv(VecEnv):
             remote.send(('reset', None))
         return np.stack([remote.recv() for remote in self.remotes])
 
+    def render(self):
+        for remote in self.remotes:
+            remote.send(('render', None))
+
     def reset_task(self):
         for remote in self.remotes:
             remote.send(('reset_task', None))
@@ -111,19 +117,98 @@ class DummyVecEnv(VecEnv):
         self.actions = actions
 
     def step_wait(self):
-        results = [env.step(a) for (a,env) in zip(self.actions, self.envs)]
-        obs, rews, dones, infos = map(np.array, zip(*results))
-        self.ts += 1
-        for (i, done) in enumerate(dones):
-            if all(done):
-                obs[i] = self.envs[i].reset()
-                self.ts[i] = 0
-        self.actions = None
-        return np.array(obs), np.array(rews), np.array(dones), infos
 
-    def reset(self):        
-        results = [env.reset() for env in self.envs]
+
+        # results = [env.step(a) for (a,env) in zip(self.actions, self.envs)]
+        # obs, rews, dones, infos = map(np.array, zip(*results))
+        # self.ts += 1
+        # for (i, done) in enumerate(dones):
+        #     if all(done):
+        #         obs[i] = self.envs[i].reset()
+        #         self.ts[i] = 0
+        # self.actions = None
+
+
+
+        # #####################################
+        # # method 1
+        # # add: state modified
+        # obs, rews, dones, infos = self.envs[0].step(self.actions)
+        # # obs = [obs]
+        # obs_ = []  # TODO: TO CHECK
+        # state = []
+        # for i in range(self.envs[0].board_height):
+        #     for j in range(self.envs[0].board_width):
+        #         state.append(obs[i][j][0])
+        #
+        # for n in range(self.envs[0].cars):  # TODO: TO CHECK
+        #     obs_.append(np.array(state))
+        # obs = [obs_]
+        #
+        # # dones
+        # Done = []
+        # for n in range(self.envs[0].cars):
+        #     Done.append(dones)
+        # Done = [Done]
+        # # ######################################
+        # return np.array(obs), np.array(rews), np.array(Done), infos
+
+        #####################################
+        # method 2
+        # add: state modified
+        obss, rews, dones, infos = self.envs[0].step(self.actions)
+        obs_ = []  # TODO: TO CHECK
+        # obs_ = []  # TODO: TO CHECK
+        # state = []
+        # for i in range(self.envs[0].board_height):
+        #     for j in range(self.envs[0].board_width):
+        #         state.append(obs[i][j][0])
+
+        obs = self.obs_wrapper(obss)
+
+        # dones
+        Done = []
+        for n in range(self.envs[0].cars):
+            Done.append(dones)
+        Done = [Done]
+
+        return np.array(obs), np.array(rews), np.array(Done), infos
+        ######################################
+
+    def reset(self):
+
+        # results = [env.reset() for env in self.envs]
+        results = self.obs_wrapper(self.envs[0].reset())
         return np.array(results)
 
     def close(self):
         return
+
+    def obs_wrapper(self, o):
+        obs = o
+        obs_ = []
+        # obs_.append(np.array(obs[0:121] + obs[121:124] + obs[127:131]))
+        # obs_.append(np.array(obs[0:121] + obs[124:127] + obs[127:131]))
+        for n in range(self.envs[0].cars):  # TODO: TO CHECK
+            obs_.append(np.array(obs[:121]+obs[121+3*n:124+3*n]))
+        # obs_.append(np.array(obs))
+        # obs_.append(np.array(obs))
+        obs = [obs_]
+        return obs
+
+    def obs_wrapper2(self, o):
+        obs = o
+        obs_ = []
+        for n in range(self.envs[0].cars):  # TODO: TO CHECK
+            obs_.append(np.array(obs))
+        obs = [obs_]
+        return obs
+
+    def render(self):
+        self.envs[0]._render()
+
+
+    # def render(self, mode='rgb_array'):
+    #     # self.envs[0].render(mode)
+    #
+    #     return self.envs[0].render_board()

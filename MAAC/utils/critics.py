@@ -142,6 +142,11 @@ class AttentionCritic(nn.Module):
         # calculate Q per agent
         all_rets = []
         for i, a_i in enumerate(agents):
+            for probs in all_attend_probs[i]:
+                temp = (probs + 1e-8)
+                temp = (temp.log() * probs).squeeze()
+                (-((probs + 1e-8).log() * probs).squeeze().sum(1)
+                 .mean())
             head_entropies = [(-((probs + 1e-8).log() * probs).squeeze().sum(1)
                                .mean()) for probs in all_attend_probs[i]]
             agent_rets = []
