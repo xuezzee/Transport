@@ -47,6 +47,7 @@ class AttentionSAC(object):
         hard_update(self.target_critic, self.critic)
         self.critic_optimizer = Adam(self.critic.parameters(), lr=q_lr,
                                      weight_decay=1e-3)
+        self.lr_schduler_critic = torch.optim.lr_scheduler.StepLR(self.critic_optimizer, step_size=5000, gamma=0.9, last_epoch=-1)
         self.agent_init_params = agent_init_params
         self.gamma = gamma
         self.tau = tau
@@ -111,6 +112,7 @@ class AttentionSAC(object):
         grad_norm = torch.nn.utils.clip_grad_norm(
             self.critic.parameters(), 10 * self.nagents)
         self.critic_optimizer.step()
+        self.lr_schduler_critic.step()
         self.critic_optimizer.zero_grad()
 
         if logger is not None:
@@ -158,6 +160,7 @@ class AttentionSAC(object):
             grad_norm = torch.nn.utils.clip_grad_norm(
                 curr_agent.policy.parameters(), 0.5)
             curr_agent.policy_optimizer.step()
+            curr_agent.lr_scheduler.step()
             curr_agent.policy_optimizer.zero_grad()
 
             if logger is not None:

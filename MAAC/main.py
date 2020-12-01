@@ -37,6 +37,8 @@ conf = {
         'ob_cell_range': None,  # 不同智能体观察到的单格中各维度取值范围（二维tuple类型），None表示与实际网格相同##?
     }
 
+logger = SummaryWriter( 'runs/' + 'log')
+
 def make_parallel_env(env_id, n_rollout_threads, seed):
     def get_env_fn(rank):
         def init_env():
@@ -140,6 +142,8 @@ def run(config):
             logger.add_scalar('agent%i/mean_episode_rewards' % a_i,
                               a_ep_rew * config.episode_length, ep_i)
         print("total reward:", total_reward)
+        logger.add_scalar("metric/total_reward", total_reward, ep_i)
+        logger.add_scalar("metric/length", et_i, ep_i)
 
         if ep_i % config.save_interval < config.n_rollout_threads:
             model.prep_rollouts(device='cpu')
@@ -163,18 +167,18 @@ if __name__ == '__main__':
     parser.add_argument("--buffer_length", default=int(1e6), type=int)
     parser.add_argument("--n_episodes", default=50000, type=int)
     parser.add_argument("--episode_length", default=1000, type=int)
-    parser.add_argument("--steps_per_update", default=100, type=int)
+    parser.add_argument("--steps_per_update", default=1000, type=int)
     parser.add_argument("--num_updates", default=4, type=int,
                         help="Number of updates per update cycle")
     parser.add_argument("--batch_size",
-                        default=1024, type=int,
+                        default=8192, type=int,
                         help="Batch size for training")
     parser.add_argument("--save_interval", default=1000, type=int)
     parser.add_argument("--pol_hidden_dim", default=128, type=int)
     parser.add_argument("--critic_hidden_dim", default=128, type=int)
     parser.add_argument("--attend_heads", default=4, type=int)
-    parser.add_argument("--pi_lr", default=0.00001, type=float)
-    parser.add_argument("--q_lr", default=0.00001, type=float)
+    parser.add_argument("--pi_lr", default=0.0001, type=float)
+    parser.add_argument("--q_lr", default=0.0001, type=float)
     parser.add_argument("--tau", default=0.001, type=float)
     parser.add_argument("--gamma", default=0.99, type=float)
     parser.add_argument("--reward_scale", default=100., type=float)

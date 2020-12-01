@@ -1,3 +1,4 @@
+import torch
 from torch import Tensor
 from torch.autograd import Variable
 from torch.optim import Adam
@@ -25,6 +26,7 @@ class AttentionAgent(object):
 
         hard_update(self.target_policy, self.policy)
         self.policy_optimizer = Adam(self.policy.parameters(), lr=lr)
+        self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.policy_optimizer, step_size=5000, gamma=0.9, last_epoch=-1)
 
     def step(self, obs, explore=False):
         """
