@@ -47,7 +47,7 @@ class AttentionSAC(object):
         hard_update(self.target_critic, self.critic)
         self.critic_optimizer = Adam(self.critic.parameters(), lr=q_lr,
                                      weight_decay=1e-3)
-        self.lr_schduler_critic = torch.optim.lr_scheduler.StepLR(self.critic_optimizer, step_size=5000, gamma=0.9, last_epoch=-1)
+        self.lr_schduler_critic = torch.optim.lr_scheduler.StepLR(self.critic_optimizer, step_size=30, gamma=0.95, last_epoch=-1)
         self.agent_init_params = agent_init_params
         self.gamma = gamma
         self.tau = tau

@@ -5,6 +5,7 @@ import torch
 import os
 import copy
 import numpy as np
+from collections import deque
 from gym.spaces import Box, Discrete
 from pathlib import Path
 from torch.autograd import Variable
@@ -37,7 +38,8 @@ conf = {
         'ob_cell_range': None,  # 不同智能体观察到的单格中各维度取值范围（二维tuple类型），None表示与实际网格相同##?
     }
 
-logger = SummaryWriter( 'runs/' + 'log')
+summary = SummaryWriter( 'runs/log')
+queue = deque(maxlen=100)
 
 def make_parallel_env(env_id, n_rollout_threads, seed):
     def get_env_fn(rank):
@@ -51,6 +53,7 @@ def make_parallel_env(env_id, n_rollout_threads, seed):
         return SubprocVecEnv([get_env_fn(i) for i in range(n_rollout_threads)])
 
 def run(config):
+    save_step = 0
     model_dir = Path('models') / config.env_id / config.model_name
     if not model_dir.exists():
         run_num = 1
@@ -119,7 +122,12 @@ def run(config):
                 joint_action.append([actions[0][m].astype(int).tolist()])
 
             next_obs, rewards, dones, infos = env.step(joint_action)
-            total_reward += rewards[0][0]
+            total_reward += sum(rewards[0])
+            queue.append(sum(rewards[0]))
+            if len(queue) == 100:
+                if ep_i % 10 == 0:
+                    summary.add_scalar("metric/average", sum(queue)/100, save_step)
+                    save_step += 1
             replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)
             obs = next_obs
             t += config.n_rollout_threads
@@ -136,14 +144,18 @@ def run(config):
                     model.update_policies(sample, logger=logger)
                     model.update_all_targets()
                 model.prep_rollouts(device='cpu')
+            if dones[0][0]:
+                print("done")
+                print("steps:",et_i)
+                break
         ep_rews = replay_buffer.get_average_rewards(
             config.episode_length * config.n_rollout_threads)
         for a_i, a_ep_rew in enumerate(ep_rews):
             logger.add_scalar('agent%i/mean_episode_rewards' % a_i,
                               a_ep_rew * config.episode_length, ep_i)
         print("total reward:", total_reward)
-        logger.add_scalar("metric/total_reward", total_reward, ep_i)
-        logger.add_scalar("metric/length", et_i, ep_i)
+        summary.add_scalar("metric/total_reward", total_reward, ep_i)
+        summary.add_scalar("metric/length", et_i, ep_i)
 
         if ep_i % config.save_interval < config.n_rollout_threads:
             model.prep_rollouts(device='cpu')
@@ -164,11 +176,11 @@ if __name__ == '__main__':
                         help="Name of directory to store " +
                              "model/training contents", default="my_model")
     parser.add_argument("--n_rollout_threads", default=1, type=int)
-    parser.add_argument("--buffer_length", default=int(1e6), type=int)
+    parser.add_argument("--buffer_length", default=int(5e4), type=int)
     parser.add_argument("--n_episodes", default=50000, type=int)
     parser.add_argument("--episode_length", default=1000, type=int)
-    parser.add_argument("--steps_per_update", default=1000, type=int)
-    parser.add_argument("--num_updates", default=4, type=int,
+    parser.add_argument("--steps_per_update", default=500, type=int)
+    parser.add_argument("--num_updates", default=1, type=int,
                         help="Number of updates per update cycle")
     parser.add_argument("--batch_size",
                         default=8192, type=int,
@@ -178,9 +190,9 @@ if __name__ == '__main__':
     parser.add_argument("--critic_hidden_dim", default=128, type=int)
     parser.add_argument("--attend_heads", default=4, type=int)
     parser.add_argument("--pi_lr", default=0.0001, type=float)
-    parser.add_argument("--q_lr", default=0.0001, type=float)
+    parser.add_argument("--q_lr", default=0.0005, type=float)
     parser.add_argument("--tau", default=0.001, type=float)
-    parser.add_argument("--gamma", default=0.99, type=float)
+    parser.add_argument("--gamma", default=0.9, type=float)
     parser.add_argument("--reward_scale", default=100., type=float)
     parser.add_argument("--use_gpu", action='store_true')
 

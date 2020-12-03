@@ -4,6 +4,7 @@ Modified from OpenAI Baselines code to work with multi-agent envs
 import numpy as np
 from multiprocessing import Process, Pipe
 from baselines.common.vec_env import VecEnv, CloudpickleWrapper
+import copy
 
 
 def worker(remote, parent_remote, env_fn_wrapper):
@@ -190,7 +191,11 @@ class DummyVecEnv(VecEnv):
         # obs_.append(np.array(obs[0:121] + obs[121:124] + obs[127:131]))
         # obs_.append(np.array(obs[0:121] + obs[124:127] + obs[127:131]))
         for n in range(self.envs[0].cars):  # TODO: TO CHECK
-            obs_.append(np.array(obs[:121]+obs[121+3*n:124+3*n]))
+            temp_obs = copy.deepcopy(obs[:122])
+            temp_obs = temp_obs + obs[-4:]
+            temp_obs[obs[121+3*n+1]*11 + obs[121+3*n+2]] = 5
+            obs_.append(np.array(temp_obs))
+            # obs_.append(np.array(obs[:121]+obs[121+3*n:124+3*n]))
         # obs_.append(np.array(obs))
         # obs_.append(np.array(obs))
         obs = [obs_]

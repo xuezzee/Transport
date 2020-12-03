@@ -138,7 +138,7 @@ class Transport(GridGame):
     # TODO: UPDATE
     @property  # 直接掉一个变量 eg. env.observation_space
     def observation_space(self):
-        return [Box(low=0, high=50, shape=(124, 1)) for i in range(self.cars)]
+        return [Box(low=0, high=50, shape=(126, 1)) for i in range(self.cars)]
 
     @property  # 直接掉一个变量 eg. env.observation_space
     def action_space(self):
@@ -212,7 +212,7 @@ class Transport(GridGame):
         #         temp = [num1, num2, num3, num4]
         #         break
 
-        temp = [8, -8, 8, -8]
+        temp = [40, -40, 40, -40]
 
         for i in range(self.materials):
             #             #print ("请输入第%d个物资集散点的坐标：'x,y'"%i)
@@ -334,6 +334,9 @@ class Transport(GridGame):
             state_int.append(self.cars_list[i].number)
             state_int.append(self.cars_list[i].position[0])
             state_int.append(self.cars_list[i].position[1])
+
+        for i in range(self.materials):
+            state_int.append(self.material_points[i].number)
         # vehicle_num = len(self.cars_list)
         # for n in range(vehicle_num):  # 3 * 2 = 6
         #     # pos = self.cars_list[n].position
@@ -464,7 +467,7 @@ class Transport(GridGame):
                         vehicle.number = vehicle.number - exchange
                         material_num = material_num + exchange
                         self.reward += exchange
-                        self.reward_per += exchange
+                        self.reward_per[i] += exchange
                         material_now.number = material_num
             #     material_now.look()
             # vehicle.look()
@@ -496,6 +499,9 @@ class Transport(GridGame):
                 state_id.append(s_[i][j][0])
         for i in range(self.cars):
             state_id = state_id+[self.cars_list[i].number, self.cars_list[i].position[0], self.cars_list[i].position[1]]
+
+        for i in range(self.materials):
+            state_id.append(self.material_points[i].number/40)
         return state_id
 
     def get_observation_space(self):  # TODO
@@ -584,7 +590,13 @@ class Transport(GridGame):
         return actions
 
     def is_terminal(self):
-        return self.step_cnt > self.max_step
+        flag = True
+        for i in range(self.cars):
+            if self.material_points[i].number != 0:
+                flag = False
+        # if flag:
+        #     print("finish")
+        return self.step_cnt > self.max_step or flag
 
     # def look(self):
     #     # print ("game look")
@@ -623,13 +635,16 @@ class Transport(GridGame):
 
         return info
 
-    def get_reward(self, joint_action):  # add  //TODO
+    def get_reward(self, joint_action):  # add
         # reward = [self.reward_per]
-        reward = [np.array([self.reward for i in range(self.cars)])]
+        # reward = [np.array([self.reward, self.reward])] # old
+
+        reward = np.array([[self.reward_per[i] for i in range(self.cars)]])
         self.reward = 0
         self.reward_per = np.zeros(self.cars)
         #         # print("score:", self.won)
         # return [self.reward,-self.reward]  #TODO: reward 需不需要reset to 0
+        # self.reward_tot += self.reward
         return reward
 
     def check_win(self):  #
@@ -728,7 +743,7 @@ class Transport(GridGame):
 
     def _render(self):
         map = np.array(self.map)
-        scale = 30
+        scale = 50
         width = map.shape[0] * scale
         height = map.shape[1] * scale
         if self.root is None:
